@@ -6,31 +6,71 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>404 — Page Non Trouvée | AvicennAI</title>
     <meta name="description" content="Page introuvable — AvicennAI par AI Solution Morocco">
-    <meta name="theme-color" content="#1a1d26">
+    <meta name="theme-color" content="#0b0d12">
     <link rel="icon"
-        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🩺</text></svg>">
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2322d1b3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z'/><path d='M12 5 9.04 7.96'/><path d='M12 5v4'/><path d='M10 9h4'/></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Playfair+Display:wght@700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script>
+        (function () {
+            var theme = localStorage.getItem('theme');
+            var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (theme === 'light' || (!theme && !systemDark)) {
+                document.documentElement.classList.remove('dark');
+                document.documentElement.classList.add('light');
+            } else {
+                document.documentElement.classList.add('dark');
+                document.documentElement.classList.remove('light');
+            }
+        })();
+    </script>
 </head>
 
 <body>
+    <button id="theme-toggle" class="icon-btn fixed-theme-btn" aria-label="Basculer le thème">
+        <i data-lucide="sun" class="sun-icon hidden"></i>
+        <i data-lucide="moon" class="moon-icon"></i>
+    </button>
     <div class="error-page">
         <div class="error-content">
-            <h1 class="error-code text-gradient">404</h1>
+            <h1 class="error-code">404</h1>
             <p class="error-message">Cette page n'existe pas ou a été déplacée.</p>
             <a href="/" class="error-link">
-                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
+                <i data-lucide="arrow-left"></i>
                 Retour à l'accueil
             </a>
         </div>
     </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            lucide.createIcons();
+            const btn = document.getElementById('theme-toggle');
+            const sunIcon = document.querySelector('.sun-icon');
+            const moonIcon = document.querySelector('.moon-icon');
+            function syncIcons() {
+                const isDark = document.documentElement.classList.contains('dark');
+                sunIcon.classList.toggle('hidden', isDark);
+                moonIcon.classList.toggle('hidden', !isDark);
+            }
+            syncIcons();
+            btn.addEventListener('click', function () {
+                const isDark = document.documentElement.classList.contains('dark');
+                if (isDark) {
+                    document.documentElement.classList.replace('dark', 'light');
+                    localStorage.setItem('theme', 'light');
+                } else {
+                    document.documentElement.classList.replace('light', 'dark');
+                    localStorage.setItem('theme', 'dark');
+                }
+                syncIcons();
+            });
+        });
+    </script>
 </body>
 
 </html>

@@ -1,143 +1,81 @@
-from flask import Flask, render_template, request, jsonify, Response
+from flask import Flask, render_template, request, Response, jsonify
 import google.generativeai as genai
-import json
-import os
-import base64
-from config import Config
+from pathlib import Path
+from langchain.agents import create_agent
+from config.config import Config
+from config.models import db, Drug, SideEffectReport
+from routes.ai_agent import stream_chat_response
+from routes.SideEffectsTrackerAgent import local_tools, get_mcp_tools
+import routes.SideEffectsTrackerAgent as tracker_module
+from dotenv import load_dotenv
+import asyncio
+import yaml
+import sys
+load_dotenv()
 
 app = Flask(__name__)
 app.config.from_object(Config)
-
-# Configure Gemini API
 genai.configure(api_key=app.config['GEMINI_API_KEY'])
 
-# Medical assistant system prompt
-SYSTEM_PROMPT = """Tu es AvicennAI, un assistant médical intelligent créé par AI Solution Morocco. 
-Tu es nommé en l'honneur d'Ibn Sina (Avicenne), le célèbre médecin et philosophe persan.
 
-Tes responsabilités:
-- Fournir des informations médicales générales et éducatives
-- Aider à comprendre les symptômes et conditions médicales
-- Suggérer quand consulter un professionnel de santé
-- Analyser les images médicales (radiographies, IRM, scans) si fournies
+db.init_app(app)
+tracker_module.flask_app = app
 
-Important:
-- Toujours rappeler que tes conseils ne remplacent pas un avis médical professionnel
-- Être empathique et rassurant
-- Répondre en français
-- Être précis et informatif tout en restant accessible
+with app.app_context():
+    db.create_all()
 
-Tu peux analyser les images médicales comme les radiographies, IRM et scans pour fournir des observations préliminaires."""
+async def load_tools():
+    mcp_tools = await get_mcp_tools()
+    return local_tools + mcp_tools
+all_tools = asyncio.run(load_tools())
+
+llm_agent = create_agent(
+    model="google_genai:gemini-3.5-flash",
+    tools=all_tools,
+    system_prompt="""
+        You are a helpful assistant for finding side effects of drugs.
+
+        When using Slack always send messages to the channel #all-neuralfinance.
+        If you find new information not in DB, notify via Slack.
+
+        Procedure:
+        1. List drugs in DB
+        2. If exists, list side effects
+        3. Fetch new side effects
+        4. Store new ones if missing
+        5. Notify user via Slack"""
+)
 
 
-def create_gemini_model():
-    """Create and return Gemini model instance"""
-    return genai.GenerativeModel(
+def load_prompts(path = "prompts.yaml"):
+    with open(Path(path), "r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+prompts = load_prompts()
+SYSTEM_PROMPT = (
+    f"{prompts['medical_assistant']['system']}\n\n"
+    f"{prompts['medical_assistant']['disclaimer']}\n\n"
+    f"{prompts['medical_assistant']['image_analysis_note']}"
+)
+
+model = genai.GenerativeModel(
         model_name='gemini-3-flash-preview',
         system_instruction=SYSTEM_PROMPT
-    )
-
-
-def process_message_content(content):
-    """Process message content to Gemini format"""
-    if isinstance(content, str):
-        return content
-    
-    # Handle multimodal content (text + image)
-    parts = []
-    for item in content:
-        if item.get('type') == 'text':
-            parts.append(item.get('text', ''))
-        elif item.get('type') == 'image_url':
-            image_url = item.get('image_url', {}).get('url', '')
-            if image_url.startswith('data:'):
-                # Extract base64 data from data URL
-                try:
-                    header, base64_data = image_url.split(',', 1)
-                    mime_type = header.split(':')[1].split(';')[0]
-                    image_bytes = base64.b64decode(base64_data)
-                    parts.append({
-                        'mime_type': mime_type,
-                        'data': base64_data
-                    })
-                except Exception as e:
-                    print(f"Error processing image: {e}")
-    return parts
-
-
-def stream_chat_response(messages):
-    """Stream chat responses from Gemini API"""
-    try:
-        model = create_gemini_model()
-        
-        # Build conversation history for Gemini
-        gemini_history = []
-        current_message = None
-        
-        for msg in messages:
-            role = 'user' if msg['role'] == 'user' else 'model'
-            content = process_message_content(msg['content'])
-            
-            if msg == messages[-1]:
-                # Last message is the current prompt
-                current_message = content
-            else:
-                gemini_history.append({
-                    'role': role,
-                    'parts': [content] if isinstance(content, str) else content
-                })
-        
-        # Start chat with history
-        chat = model.start_chat(history=gemini_history)
-        
-        # Stream the response
-        if isinstance(current_message, list):
-            # Multimodal message
-            response = chat.send_message(current_message, stream=True)
-        else:
-            response = chat.send_message(current_message or '', stream=True)
-        
-        for chunk in response:
-            if chunk.text:
-                # Format as SSE with OpenAI-compatible structure for frontend
-                data = {
-                    'choices': [{
-                        'delta': {
-                            'content': chunk.text
-                        }
-                    }]
-                }
-                yield f"data: {json.dumps(data)}\n\n"
-        
-        yield "data: [DONE]\n\n"
-        
-    except Exception as e:
-        print(f"Gemini API error: {e}")
-        error_data = {
-            'choices': [{
-                'delta': {
-                    'content': f"Désolé, une erreur s'est produite: {str(e)}"
-                }
-            }]
-        }
-        yield f"data: {json.dumps(error_data)}\n\n"
-        yield "data: [DONE]\n\n"
+)
 
 
 @app.route('/')
 def index():
-    """Main chat page with welcome screen"""
     return render_template('index.html')
 
 
 @app.route('/api/chat', methods=['POST'])
 def chat():
-    """Handle chat messages with streaming response"""
     data = request.get_json()
     messages = data.get('messages', [])
     
     return Response(
-        stream_chat_response(messages),
+        stream_chat_response(messages, model),
         mimetype='text/event-stream',
         headers={
             'Cache-Control': 'no-cache',
@@ -147,6 +85,27 @@ def chat():
     )
 
 
+@app.route('/side-effects')
+def Sideeffects():
+    drugs = Drug.query.all()
+    return render_template("side_effects.html", drugs=drugs)
+
+
+@app.route("/query", methods=["POST"])
+def query():
+    user_query = request.json.get("query", "")
+
+    # FIX: correct input format for most modern LangChain agents
+    result = asyncio.run(
+        llm_agent.ainvoke({
+            "messages": [{"role": "user", "content": user_query}]
+        })
+    )
+
+    response = result["messages"][-1]["content"]
+
+    return jsonify({"response": response})
+
 @app.errorhandler(404)
 def not_found(error):
     """404 error page"""
@@ -155,3 +114,4 @@ def not_found(error):
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+

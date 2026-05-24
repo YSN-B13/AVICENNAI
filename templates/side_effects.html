@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DoseEffect — AvicennAI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/side_effects.css') }}">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script>
+        (function () {
+            var theme = localStorage.getItem('theme');
+            var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (theme === 'light' || (!theme && !systemDark)) {
+                document.documentElement.classList.remove('dark');
+                document.documentElement.classList.add('light');
+            } else {
+                document.documentElement.classList.add('dark');
+                document.documentElement.classList.remove('light');
+            }
+        })();
+    </script>
+    <link rel="icon" href="{{ url_for('static', filename='imgs/logolight.png') }}" type="image/png">
+</head>
+
+<body>
+    <div id="app">
+        <header id="header" class="app-header">
+            <div class="app-header-inner">
+                <a href="{{ url_for('index') }}" id="back-btn" class="back-btn" aria-label="Retour à l'accueil">
+                    <i data-lucide="arrow-left"></i>
+                </a>
+                <div class="header-center">
+                    <div class="header-logo-wrap">
+                        <div class="header-logo-icon">
+                            <i data-lucide="heart-pulse"></i>
+                        </div>
+                        <div class="header-pulse-ring"></div>
+                    </div>
+                    <div class="header-brand">
+                        <span class="brand-name">AvicennAI</span>
+                        <span class="brand-divider">·</span>
+                        <span class="brand-tagline">DoseEffect</span>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <button id="theme-toggle" class="icon-btn" aria-label="Basculer le thème">
+                        <i data-lucide="sun" class="sun-icon hidden"></i>
+                        <i data-lucide="moon" class="moon-icon"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main id="main">
+            <div class="se-container">
+                <header class="se-header">
+                    <h1>Rapports d'Effets Secondaires</h1>
+                    <p>Analysez les interactions et les effets des médicaments avec l'IA</p>
+                </header>
+
+                <section class="query-section">
+                    <div class="premium-search-wrap">
+                        <input type="text" id="query"
+                            placeholder="Ex: 'Ajouter l'Aspirine' ou 'Effets de l'Ibuprofène'..."
+                            aria-label="Requête DoseEffect">
+                        <button id="search-btn" class="search-btn" aria-label="Envoyer">
+                            <i data-lucide="send"></i>
+                        </button>
+                    </div>
+                </section>
+
+                <div class="drugs-grid">
+                    {% if drugs %}
+                    {% for drug in drugs %}
+                    <article class="drug-card">
+                        <div class="drug-name-wrap">
+                            <div class="drug-icon">
+                                <i data-lucide="pill"></i>
+                            </div>
+                            <h3>{{ drug.drug_name }}</h3>
+                        </div>
+
+                        <div class="side-effects-list">
+                            {% if drug.side_effect_reports %}
+                            {% for report in drug.side_effect_reports %}
+                            <div class="se-report-item">
+                                <div class="se-report-header">
+                                    <span class="se-name">{{ report.side_effect_name }}</span>
+                                    <span class="se-prob">{{ (report.side_effect_probability * 100)|round(1) }}%</span>
+                                </div>
+                                <div class="prob-bar-container">
+                                    <div class="prob-bar-fill" style="width: 0%"
+                                        data-width="{{ (report.side_effect_probability * 100)|round(1) }}"></div>
+                                </div>
+                                <time class="se-date">Signalé le : {{ report.side_effect_date }}</time>
+                            </div>
+                            {% endfor %}
+                            {% else %}
+                            <div class="empty-state">
+                                <i data-lucide="info"></i>
+                                <p>Aucun effet secondaire signalé pour ce médicament.</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </article>
+                    {% endfor %}
+                    {% else %}
+                    <div class="empty-state">
+                        <i data-lucide="database-zap"></i>
+                        <p>Aucun médicament dans la base de données. Commencez par en ajouter un !</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </main>
+
+        <!-- Loading Overlay -->
+        <div id="loading-overlay">
+            <div class="loader-content">
+                <div class="loader-spinner"></div>
+                <p>Analyse de votre requête par l'IA...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/side_effects.js') }}"></script>
+</body>
+
+</html>
