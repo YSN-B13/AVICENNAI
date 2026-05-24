@@ -1,15 +1,26 @@
-Flask
-python-dotenv
-requests
-Werkzeug
-google-genai
-langchain-google-genai
-langchain
-langchain-community
-langchain-mcp-adapters
-pyyaml
-SQLAlchemy
-Flask-SQLAlchemy
-httpx
-anyio
+# ── Core Web Framework ──
+Flask>=3.1.3
+Werkzeug>=3.1.8
+python-dotenv>=1.2.2
 
+# ── Google AI / Gemini ──
+google-generativeai>=0.8.6
+google-genai>=1.75.0
+
+# ── LangChain & Agents ──
+langchain>=1.3.1
+langchain-community>=0.4.2
+langchain-google-genai>=4.2.3
+langchain-mcp-adapters>=0.2.2
+
+# ── Database ──
+SQLAlchemy>=2.0.49
+Flask-SQLAlchemy>=3.1.1
+
+# ── HTTP & Async ──
+requests>=2.34.2
+httpx>=0.28.1
+anyio>=4.13.0
+
+# ── Utilities ──
+pyyaml>=6.0.3
